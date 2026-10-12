@@ -196,7 +196,7 @@ class _BiblePageState extends State<BiblePage> {
   // Gets the correct JSON file depending on the selected language.
   String get assetPath {
     if (_isIndonesian) {
-      return 'assets/indo_tb.json';
+      return 'assets/TB_books/$book.json';
     } else {
       return 'assets/ESV_books/$book.json';
     }
@@ -213,6 +213,17 @@ class _BiblePageState extends State<BiblePage> {
         widget.chapter == chapterCounts[widget.bookIndex];
   }
 
+  final indonesianBookNames = {
+    'Genesis': 'Kejadian',
+    'Exodus': 'Keluaran',
+  };
+
+  String get jsonBookName {
+    if (_isIndonesian) {
+      return indonesianBookNames[book] ?? book;
+    }
+    return book;
+  }
   // Switches between English and Indonesian.
   void switchLanguage() {
     setState(() {
@@ -280,7 +291,11 @@ class _BiblePageState extends State<BiblePage> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
 
-        title: Text('$book ${widget.chapter}'),
+        title: Text(
+          '${_isIndonesian
+              ? indonesianBookNames[book] ?? book
+              : book} ${widget.chapter}',
+        ),
 
         // Button in the top-right corner.
         actions: [
@@ -327,49 +342,17 @@ class _BiblePageState extends State<BiblePage> {
           try {
             // Converts the JSON text into Dart data.
             final data = jsonDecode(snapshot.data!);
+            final bookData = data[jsonBookName];
+            final chapter = bookData[widget.chapter.toString()];
 
-            List<Map<String, dynamic>> chapterData;
-
-            if (_isIndonesian) {
-              // -----------------------------
-              // INDONESIAN JSON
-              // -----------------------------
-
-              final verses = data['verses'] as List;
-
-              // The Indonesian JSON uses:
-              // book = 1 for Genesis
-              // book = 2 for Exodus
-              // etc.
-              final currentBookNumber = widget.bookIndex + 1;
-
-              chapterData = verses
-                  .where((verse) {
-                    return verse['book'] == currentBookNumber &&
-                        verse['chapter'] == widget.chapter;
-                  })
-                  .map<Map<String, dynamic>>(
-                    (verse) => Map<String, dynamic>.from(verse),
-                  )
-                  .toList();
-            } else {
-              // -----------------------------
-              // ENGLISH JSON
-              // -----------------------------
-
-              final bookData = data[book];
-
-              final chapter = bookData[widget.chapter.toString()];
-
-              chapterData = (chapter as Map<String, dynamic>)
-                  .entries
-                  .map<Map<String, dynamic>>((verse) {
-                return {
-                  'verse': int.parse(verse.key),
-                  'text': verse.value,
-                };
-              }).toList();
-            }
+            final chapterData = (chapter as Map<String, dynamic>)
+                .entries
+                .map<Map<String, dynamic>>((verse) {
+              return {
+                'verse': int.parse(verse.key),
+                'text': verse.value,
+              };
+            }).toList();
 
             // Make sure the chapter contains verses.
             if (chapterData.isEmpty) {
