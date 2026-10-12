@@ -3,18 +3,45 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:shared_preferences/shared_preferences.dart';
 
 // Retrieves the Bible JSON file.
 Future<String> getFileData(String path) async {
   return await rootBundle.loadString(path);
 }
 
-void main() {
-  runApp(const MyApp());
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  final prefs = await SharedPreferences.getInstance();
+
+  final savedBookIndex = prefs.getInt('lastBookIndex') ?? 0;
+  final savedChapter = prefs.getInt('lastChapter') ?? 1;
+  final savedLanguage = prefs.getBool('isIndonesian') ?? true;
+
+  runApp(
+    MyApp(
+      bookIndex: savedBookIndex,
+      chapter: savedChapter,
+      isIndonesian: savedLanguage,
+    ),
+  );
 }
 
+
+
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({
+    super.key,
+    required this.bookIndex,
+    required this.chapter,
+    required this.isIndonesian,
+  });
+
+  final int bookIndex;
+  final int chapter;
+  final bool isIndonesian;
 
   @override
   Widget build(BuildContext context) {
@@ -24,32 +51,44 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue),
         useMaterial3: true,
       ),
-      home: const BiblePage(
-        bookIndex: 0,
-        chapter: 1,
+      home: BiblePage(
+        bookIndex: bookIndex,
+        chapter: chapter,
+        isIndonesian: isIndonesian,
       ),
     );
   }
 }
+
+
 
 class BiblePage extends StatefulWidget {
   const BiblePage({
     super.key,
     required this.bookIndex,
     required this.chapter,
+    required this.isIndonesian,
   });
 
   final int bookIndex;
   final int chapter;
+  final bool isIndonesian;
 
   @override
   State<BiblePage> createState() => _BiblePageState();
 }
 
+
 class _BiblePageState extends State<BiblePage> {
   // false = English
   // true = Indonesian
-  bool _isIndonesian = true;
+  late bool _isIndonesian;
+
+  @override
+  void initState() {
+    super.initState();
+    _isIndonesian = widget.isIndonesian;
+  }
 
   static const List<String> books = [
     'Genesis',
@@ -224,15 +263,30 @@ class _BiblePageState extends State<BiblePage> {
     }
     return book;
   }
+
+ 
+  Future<void> savePosition() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    await prefs.setInt('lastBookIndex', widget.bookIndex);
+    await prefs.setInt('lastChapter', widget.chapter);
+    await prefs.setBool('isIndonesian', _isIndonesian);
+  }
+
+
   // Switches between English and Indonesian.
+
   void switchLanguage() {
     setState(() {
       _isIndonesian = !_isIndonesian;
     });
+
+    savePosition();
   }
 
+
   // Goes to the next chapter.
-  void goToNextPage() {
+  Future<void> goToNextPage() async {
     if (isLastPage) {
       return;
     }
@@ -246,6 +300,13 @@ class _BiblePageState extends State<BiblePage> {
       nextBookIndex++;
       nextChapter = 1;
     }
+    
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('lastBookIndex', nextBookIndex);
+    await prefs.setInt('lastChapter', nextChapter);
+    await prefs.setBool('isIndonesian', _isIndonesian);
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
@@ -253,13 +314,14 @@ class _BiblePageState extends State<BiblePage> {
         builder: (context) => BiblePage(
           bookIndex: nextBookIndex,
           chapter: nextChapter,
+          isIndonesian: _isIndonesian,
         ),
       ),
     );
   }
 
   // Goes to the previous chapter.
-  void goToPreviousPage() {
+  Future<void> goToPreviousPage() async {
     if (isFirstPage) {
       return;
     }
@@ -273,6 +335,12 @@ class _BiblePageState extends State<BiblePage> {
       previousBookIndex--;
       previousChapter = chapterCounts[previousBookIndex];
     }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('lastBookIndex', previousBookIndex);
+    await prefs.setInt('lastChapter', previousChapter);
+    await prefs.setBool('isIndonesian', _isIndonesian);
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
@@ -280,6 +348,7 @@ class _BiblePageState extends State<BiblePage> {
         builder: (context) => BiblePage(
           bookIndex: previousBookIndex,
           chapter: previousChapter,
+          isIndonesian: _isIndonesian,
         ),
       ),
     );
