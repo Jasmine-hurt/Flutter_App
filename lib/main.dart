@@ -290,7 +290,7 @@ class _BiblePageState extends State<BiblePage> {
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-
+        centerTitle: true,
         title: Text(
           '${_isIndonesian
               ? indonesianBookNames[book] ?? book
